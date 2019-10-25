@@ -49,7 +49,7 @@ function App() {
 
 Of course, you'll also want to be able to refresh and update your data. Mirrors and snapshots both have a suite of methods to make this easy. You can see how this works at the live example:
 
-[See a full featured example at CodeSandbox]()
+[See a full featured example at CodeSandbox](https://codesandbox.io/s/broken-water-48o94)
 
 
 
