@@ -33,7 +33,7 @@ const api = createMirror(async url => {
 function Screen() {
   // useSnapshot returns your data, loading status, etc.
   let { data } = useSnapshot(api, '/todos/1')
-  return <div>{data.complete ? '✔️' : '❌'} {data.title}</div>
+  return <div><input checked={data.completed} /> {data.title}</div>
 }
 
 function App() {
@@ -155,8 +155,7 @@ interface MirrorHandle {
   get(): Promise<MirrorPrimedSnapshot<Data>>
 
   /**
-   * Returns the latest snapshot for the given data if any exists, otherwise
-   * returns `null`.
+   * Returns the latest snapshot for the given data.
    */
   getLatest(): MirrorSnapshot<Data>
 

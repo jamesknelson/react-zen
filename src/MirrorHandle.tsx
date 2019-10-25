@@ -15,8 +15,7 @@ export interface MirrorHandle<Data, Key> extends MirrorActions<Data, Key> {
   get(): Promise<MirrorPrimedSnapshot<Data>>
 
   /**
-   * Returns the latest snapshot for the given data if any exists, otherwise
-   * returns `null`.
+   * Returns the latest snapshot for the given data.
    */
   getLatest(): MirrorSnapshot<Data>
 
