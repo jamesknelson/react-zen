@@ -3,11 +3,15 @@ import {
   MirrorFetchManyFunction,
   MirrorOptions,
   MirrorPurgeScheduler,
-  MirrorSnapshotComparator,
   NamespacedMirror,
 } from './Mirror'
-import { MirrorHandle } from './MirrorHandle'
-import { MirrorSnapshot, MirrorPrimedSnapshot } from './MirrorSnapshots'
+import { MirrorDocumentHandle, MirrorDocumentListHandle } from './MirrorHandles'
+import {
+  MirrorSnapshot,
+  MirrorPrimedSnapshot,
+  MirrorDocumentSnapshot,
+  MirrorPrimedDocumentSnapshot,
+} from './MirrorSnapshots'
 
 interface ScheduledPurge {
   canceller?: () => void
@@ -15,7 +19,7 @@ interface ScheduledPurge {
 
 interface Subscription<Data, Key> {
   hashes: string[]
-  callback: (snapshots: MirrorSnapshot<Data, Key>[]) => void
+  callback: (snapshots: MirrorDocumentSnapshot<Data, Key>[]) => void
 }
 
 export default class NamespacedMirrorImplementation<
@@ -47,7 +51,7 @@ export default class NamespacedMirrorImplementation<
     [hash: string]: Subscription<Data, Key>[]
   }
   _snapshots: {
-    [hash: string]: MirrorSnapshot<Data, Key>
+    [hash: string]: MirrorDocumentSnapshot<Data, Key>
   }
 
   constructor(options: MirrorOptions<Data, Key, Context>, context: Context) {
@@ -103,14 +107,11 @@ export default class NamespacedMirrorImplementation<
   }
 
   key(key: Key) {
-    // we can't hold on to all snapshots, or we'll end up with a memory leak.
-    // instead, snapshots need to hold on to us.
     return new MirrorKeyHandle(this, key)
   }
 
-  keys(keys: Key[]): MirrorHandle<Data[], Key[]> {
-    // Need a separate handle implementation for multiple keys
-    throw new Error('Unimplemented')
+  keys(keys: Key[]) {
+    return new MirrorKeyListHandle(this, keys)
   }
 
   knownKeys() {
@@ -142,7 +143,7 @@ export default class NamespacedMirrorImplementation<
   }
 
   async _fetch(keys: Key[], hashes: string[]) {
-    const pendingSnapshotsToStore: MirrorSnapshot<Data, Key>[] = []
+    const pendingSnapshotsToStore: MirrorDocumentSnapshot<Data, Key>[] = []
     const keysToFetch: Key[] = []
     const hashesToFetch: string[] = []
 
@@ -173,7 +174,7 @@ export default class NamespacedMirrorImplementation<
     this._store(pendingSnapshotsToStore)
 
     if (keysToFetch.length > 0) {
-      let updatedSnapshots: MirrorSnapshot<Data, Key>[] = []
+      let updatedSnapshots: MirrorDocumentSnapshot<Data, Key>[] = []
       try {
         const promise = this._config.fetchMany(keysToFetch, this.context, this)
         for (let i = 0; i < hashesToFetch.length; i++) {
@@ -207,7 +208,7 @@ export default class NamespacedMirrorImplementation<
     unhold()
   }
 
-  _get(keys: Key[]): (MirrorSnapshot<Data, Key> | null)[] {
+  _get(keys: Key[]): (MirrorDocumentSnapshot<Data, Key> | null)[] {
     return keys.map(
       key => this._snapshots[this._config.computeHashForKey(key)] || null,
     )
@@ -242,7 +243,7 @@ export default class NamespacedMirrorImplementation<
 
   _invalidate(keys: Key[]): void {
     const hashes = this._computeHashes(keys)
-    const snapshotsToStore: MirrorSnapshot<Data, Key>[] = []
+    const snapshotsToStore: MirrorDocumentSnapshot<Data, Key>[] = []
     const keysToFetch: Key[] = []
     const hashesToFetch: string[] = []
     for (let i = 0; i < hashes.length; i++) {
@@ -321,7 +322,7 @@ export default class NamespacedMirrorImplementation<
     }
   }
 
-  _store(snapshots: MirrorSnapshot<Data, Key>[]): void {
+  _store(snapshots: MirrorDocumentSnapshot<Data, Key>[]): void {
     const hashes: string[] = []
     const hashesToSchedulePurge: string[] = []
     const updatedSubscriptions: Set<Subscription<Data, Key>> = new Set()
@@ -380,7 +381,7 @@ export default class NamespacedMirrorImplementation<
 
   _subscribe(
     keys: Key[],
-    callback: (snapshots: MirrorSnapshot<Data, Key>[]) => void,
+    callback: (snapshots: MirrorDocumentSnapshot<Data, Key>[]) => void,
   ): () => void {
     const keysToFetch: Key[] = []
     const hashes: string[] = this._computeHashes(keys)
@@ -437,7 +438,7 @@ export default class NamespacedMirrorImplementation<
   }
 }
 
-class MirrorKeyHandle<Data, Key> implements MirrorHandle<Data, Key> {
+class MirrorKeyHandle<Data, Key> implements MirrorDocumentHandle<Data, Key> {
   readonly key: Key
   readonly impl: NamespacedMirrorImplementation<Data, Key, any>
 
@@ -455,23 +456,28 @@ class MirrorKeyHandle<Data, Key> implements MirrorHandle<Data, Key> {
     return snapshot
   }
 
-  get(): Promise<MirrorPrimedSnapshot<Data, Key>> {
+  get(): Promise<MirrorPrimedDocumentSnapshot<Data, Key>> {
     const currentSnapshot = this.impl._get([this.key])[0]
     if (currentSnapshot && currentSnapshot.primed) {
-      return Promise.resolve(currentSnapshot as MirrorPrimedSnapshot<Data, Key>)
+      return Promise.resolve(currentSnapshot as MirrorPrimedDocumentSnapshot<
+        Data,
+        Key
+      >)
     } else {
-      return new Promise<MirrorPrimedSnapshot<Data, Key>>((resolve, reject) => {
-        const unsubscribe = this.impl._subscribe([this.key], ([snapshot]) => {
-          if (!snapshot.pending) {
-            unsubscribe()
-            if (snapshot.primed) {
-              resolve(snapshot as MirrorPrimedSnapshot<Data, Key>)
-            } else {
-              reject(snapshot.failure && snapshot.failure.reason)
+      return new Promise<MirrorPrimedDocumentSnapshot<Data, Key>>(
+        (resolve, reject) => {
+          const unsubscribe = this.impl._subscribe([this.key], ([snapshot]) => {
+            if (!snapshot.pending) {
+              unsubscribe()
+              if (snapshot.primed) {
+                resolve(snapshot as MirrorPrimedDocumentSnapshot<Data, Key>)
+              } else {
+                reject(snapshot.failure && snapshot.failure.reason)
+              }
             }
-          }
-        })
-      })
+          })
+        },
+      )
     }
   }
 
@@ -519,11 +525,148 @@ class MirrorKeyHandle<Data, Key> implements MirrorHandle<Data, Key> {
   }
 }
 
+class MirrorKeyListHandle<Data, Key>
+  implements MirrorDocumentListHandle<Data, Key> {
+  readonly key: Key[]
+  readonly impl: NamespacedMirrorImplementation<Data, Key, any>
+
+  constructor(
+    impl: NamespacedMirrorImplementation<Data, Key, any>,
+    key: Key[],
+  ) {
+    this.key = key
+    this.impl = impl
+  }
+
+  getLatest() {
+    const snapshotsToStore: MirrorDocumentSnapshot<Data, Key>[] = []
+    const maybeSnapshots = this.impl._get(this.key)
+    const snapshots: MirrorDocumentSnapshot<Data, Key>[] = []
+    let primed = true
+    for (let i = 0; i < maybeSnapshots.length; i++) {
+      const key = this.key[i]
+      const snapshot = maybeSnapshots[i]
+      if (snapshot === null) {
+        const initialSnapshot = getInitialSnapshot(key)
+        maybeSnapshots[i] = initialSnapshot
+        snapshotsToStore.push(initialSnapshot)
+        primed = false
+      } else if (!snapshot.primed) {
+        primed = false
+      }
+    }
+    if (snapshotsToStore.length) {
+      this.impl._store(snapshotsToStore)
+    }
+    return getListSnapshot(snapshots, primed)
+  }
+
+  get(): Promise<
+    MirrorPrimedSnapshot<MirrorDocumentSnapshot<Data, Key>[], Key[]>
+  > {
+    const maybeSnapshots = this.impl._get(this.key)
+    const primed = maybeSnapshots.every(snapshot => snapshot && snapshot.primed)
+    if (primed) {
+      return Promise.resolve(getListSnapshot(
+        maybeSnapshots as MirrorDocumentSnapshot<Data, Key>[],
+        true,
+      ) as MirrorPrimedSnapshot<MirrorDocumentSnapshot<Data, Key>[], Key[]>)
+    } else {
+      return new Promise<
+        MirrorPrimedSnapshot<MirrorDocumentSnapshot<Data, Key>[], Key[]>
+      >((resolve, reject) => {
+        const unsubscribe = this.impl._subscribe(this.key, snapshots => {
+          const pending = snapshots.some(snapshot => snapshot.pending)
+          if (!pending) {
+            const primed = snapshots.every(
+              snapshot => snapshot && snapshot.primed,
+            )
+            const listSnapshot = getListSnapshot(snapshots, primed)
+            unsubscribe()
+            if (primed) {
+              resolve(listSnapshot as MirrorPrimedSnapshot<
+                MirrorDocumentSnapshot<Data, Key>[],
+                Key[]
+              >)
+            } else {
+              reject(listSnapshot.failure && listSnapshot.failure.reason)
+            }
+          }
+        })
+      })
+    }
+  }
+
+  hold() {
+    return this.impl._hold(this.impl._computeHashes(this.key))
+  }
+
+  invalidate() {
+    this.impl._invalidate(this.key)
+  }
+
+  async predictUpdate(dataOrUpdater) {
+    // TODO:
+    // - should be possible to store predicted state for a short period of
+    //   time, setting a flag noting that the state is just a prediction.
+    throw new Error('Unimplemented')
+  }
+
+  subscribe(callback) {
+    return this.impl._subscribe(this.key, snapshots => {
+      callback(
+        getListSnapshot(
+          snapshots,
+          snapshots.every(snapshot => snapshot.primed),
+        ),
+      )
+    })
+  }
+
+  update(dataOrUpdater) {
+    let data: Data[]
+    let maybeSnapshots = this.impl._get(this.key)
+    if (typeof dataOrUpdater === 'function') {
+      if (maybeSnapshots.some(snapshot => !snapshot || !snapshot.primed)) {
+        throw new MissingDataError()
+      }
+      data = dataOrUpdater(maybeSnapshots.map(snapshot => snapshot!.data))
+    } else {
+      data = dataOrUpdater
+    }
+
+    const updateTime = Date.now()
+    this.impl._store(
+      maybeSnapshots.map((snapshot, i) =>
+        getUpdatedSnapshot(
+          this.key[i],
+          data[i],
+          snapshot ? snapshot.pending : false,
+          updateTime,
+        ),
+      ),
+    )
+  }
+}
+
+function getListSnapshot<Data, Key>(
+  snapshots: MirrorDocumentSnapshot<Data, Key>[],
+  primed: boolean,
+): MirrorSnapshot<MirrorDocumentSnapshot<Data, Key>[], Key[]> {
+  const failedSnapshot = snapshots.find(snapshot => snapshot.failure)
+  return {
+    data: snapshots,
+    key: this.key,
+    primed,
+    failure: failedSnapshot ? failedSnapshot.failure : null,
+  }
+}
+
 function getFailureSnapshot<Data, Key>(
-  currentSnapshot: MirrorSnapshot<Data, Key>,
+  currentSnapshot: MirrorDocumentSnapshot<Data, Key>,
   reason: any,
   failedAt: number,
-): MirrorSnapshot<Data, Key> {
+): MirrorDocumentSnapshot<Data, Key> {
   return {
     ...currentSnapshot,
     failure: {
@@ -534,7 +677,7 @@ function getFailureSnapshot<Data, Key>(
   }
 }
 
-function getInitialSnapshot<Key>(key: Key): MirrorSnapshot<any, Key> {
+function getInitialSnapshot<Key>(key: Key): MirrorDocumentSnapshot<any, Key> {
   return {
     data: undefined,
     failure: null,
@@ -548,8 +691,8 @@ function getInitialSnapshot<Key>(key: Key): MirrorSnapshot<any, Key> {
 
 function getPendingSnapshot<Data, Key>(
   key: Key,
-  currentSnapshot: null | MirrorSnapshot<Data, Key>,
-): MirrorSnapshot<Data, Key> {
+  currentSnapshot: null | MirrorDocumentSnapshot<Data, Key>,
+): MirrorDocumentSnapshot<Data, Key> {
   if (!currentSnapshot) {
     return getInitialSnapshot(key)
   } else if (!currentSnapshot.pending) {
@@ -566,7 +709,7 @@ function getUpdatedSnapshot<Data, Key>(
   data: Data,
   pending: boolean,
   updatedAt: number,
-): MirrorSnapshot<Data, Key> {
+): MirrorDocumentSnapshot<Data, Key> {
   return {
     data,
     failure: null,

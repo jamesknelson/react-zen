@@ -1,7 +1,10 @@
 export type MirrorCancelHoldFunction = () => void
-export type MirrorUpdaterCallback<Data, Key> = (data: Data, key: Key) => Data
+export type MirrorUpdaterCallback<UpdateData, Key> = (
+  data: UpdateData,
+  key: Key,
+) => UpdateData
 
-export interface MirrorActions<Data, Key> {
+export interface MirrorActions<UpdateData, Key> {
   /**
    * Instructs the mirror to keep any snapshots of this key, even when there
    * is no active subscription.
@@ -28,7 +31,7 @@ export interface MirrorActions<Data, Key> {
    * returned promise is rejected, the reason will be added to `failure`.
    */
   predictUpdate(
-    dataOrUpdater?: Data | MirrorUpdaterCallback<Data, Key>,
+    dataOrUpdater?: UpdateData | MirrorUpdaterCallback<UpdateData, Key>,
   ): Promise<void>
 
   /**
@@ -42,5 +45,7 @@ export interface MirrorActions<Data, Key> {
    *
    * This will not change the `pending` status of your data.
    */
-  update(dataOrUpdater: Data | MirrorUpdaterCallback<Data, Key>): void
+  update(
+    dataOrUpdater: UpdateData | MirrorUpdaterCallback<UpdateData, Key>,
+  ): void
 }

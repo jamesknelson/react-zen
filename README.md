@@ -204,7 +204,9 @@ A number of undocumented placeholder functions currently exist, which throw an e
 
 A number of *other* features have already been implemented, but need documentation and testing. These include namespaces and `extractState()`, both of which would be useful for server side rendering.
 
-Finally, once `mirror.keys()` has been implemented, it should be possible to create a `CollectionMirror`, which allows you to subscribe to queries/collections as well as individual records.
+Once `mirror.keys()` has been implemented, it should be possible to create a `CollectionMirror`, which allows you to subscribe to queries/collections as well as individual records.
+
+On other feature that would go a long way to improving real world use would configurable strategies for fetching invalidated/initial data -- instead of just giving up after the first fetch, as currently happens. Alongside this, it may make sense to have the ability to command a fetch, as opposed to just marking data as invalidated and allowing fetch to happen automatically.
 
 
 License

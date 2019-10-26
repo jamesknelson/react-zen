@@ -3,10 +3,9 @@ import {
   MirrorFetchFunction,
   MirrorOptions,
   MirrorPurgeScheduler,
-  MirrorSnapshotComparator,
   NamespacedMirror,
 } from './Mirror'
-import { MirrorSnapshot } from './MirrorSnapshots'
+import { MirrorDocumentSnapshot } from './MirrorSnapshots'
 import NamespacedMirrorImplementation from './NamespacedMirrorImplementation'
 
 class MirrorImplementation<
@@ -42,7 +41,6 @@ interface CreateMirror {
     options: MirrorFetchFunction<Data, Key, Context>,
   ): Mirror<Data, Key, Context>
 
-  defaultCompareSnapshots: MirrorSnapshotComparator<any, any>
   defaultComputeHashForKey: (key: any) => string
   defaultSchedulePurge: number | MirrorPurgeScheduler<any, any, any>
 }
@@ -72,11 +70,6 @@ const createMirror: CreateMirror = function createMirror<
     ...options,
   })
 }
-
-createMirror.defaultCompareSnapshots = (
-  x: MirrorSnapshot<any, any>,
-  y: MirrorSnapshot<any, any>,
-) => (x.updatedAt && y.updatedAt ? x.updatedAt - y.updatedAt : 0)
 
 createMirror.defaultComputeHashForKey = (key: any) =>
   typeof key === 'string' ? key : JSON.stringify(key)

@@ -1,5 +1,5 @@
-import { MirrorHandle } from './MirrorHandle'
-import { MirrorSnapshot } from './MirrorSnapshots'
+import { MirrorDocumentHandle, MirrorDocumentListHandle } from './MirrorHandles'
+import { MirrorDocumentSnapshot } from './MirrorSnapshots'
 
 export interface Mirror<Data = any, Key = any, Context extends object = any>
   extends NamespacedMirror<Data, Key, {}> {
@@ -29,13 +29,13 @@ export interface NamespacedMirror<Data, Key, Context extends object> {
    * Return a handle for the specified key, from which you can get
    * and subscribe to its value.
    */
-  key(key: Key): MirrorHandle<Data, Key>
+  key(key: Key): MirrorDocumentHandle<Data, Key>
 
   /**
    * Return a handle for an array of keys, from which you can get
    * and subscribe to multiple values at once.
    */
-  keys(keys: Key[]): MirrorHandle<Data[], Key[]>
+  keys(keys: Key[]): MirrorDocumentListHandle<Data, Key>
 
   /**
    * Return a list of the keys currently stored in the mirror for the given
@@ -117,7 +117,7 @@ export type MirrorCancelScheduledPurgeFunction = () => void
 export type MirrorCleanupEffectFunction = () => void
 
 export type MirrorEffectFunction<Data, Key, Context extends object> = (
-  snapshot: MirrorSnapshot<Data, Key>,
+  snapshot: MirrorDocumentSnapshot<Data, Key>,
   context: Context,
 ) => MirrorCleanupEffectFunction
 
@@ -135,11 +135,6 @@ export type MirrorFetchManyFunction<Data, Key, Context extends object> = (
 
 export type MirrorPurgeScheduler<Data, Key, Context extends object> = (
   purge: () => void,
-  snapshot: MirrorSnapshot<Data, Key>,
+  snapshot: MirrorDocumentSnapshot<Data, Key>,
   context: Context,
 ) => MirrorCancelScheduledPurgeFunction
-
-export type MirrorSnapshotComparator<Data, Key> = (
-  x: MirrorSnapshot<Data, Key>,
-  y: MirrorSnapshot<Data, Key>,
-) => number
