@@ -545,15 +545,15 @@ class MirrorKeyListHandle<Data, Key>
     let primed = true
     for (let i = 0; i < maybeSnapshots.length; i++) {
       const key = this.key[i]
-      const snapshot = maybeSnapshots[i]
+      let snapshot = maybeSnapshots[i]
       if (snapshot === null) {
-        const initialSnapshot = getInitialSnapshot(key)
-        maybeSnapshots[i] = initialSnapshot
-        snapshotsToStore.push(initialSnapshot)
+        snapshot = getInitialSnapshot(key)
+        snapshotsToStore.push(snapshot)
         primed = false
       } else if (!snapshot.primed) {
         primed = false
       }
+      snapshots.push(snapshot!)
     }
     if (snapshotsToStore.length) {
       this.impl._store(snapshotsToStore)

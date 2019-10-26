@@ -37,4 +37,28 @@ describe('MirrorKeyListHandle', () => {
       primed: true,
     })
   })
+
+  test('after an update, data should be immediately available', async () => {
+    let fetched = false
+    const mirror = createMirror(async (id: number) => {
+      fetched = true
+      return {
+        test: id * 2,
+      }
+    })
+
+    const handle = mirror.keys([1, 2])
+
+    handle.update([{ test: 8 }, { test: 9 }])
+
+    const latestSnapshot = handle.getLatest()
+    const awaitedSnapshot = await handle.get()
+
+    expect(awaitedSnapshot.data.map(snapshot => snapshot.data.test)).toEqual([
+      8,
+      9,
+    ])
+    expect(latestSnapshot).toEqual(awaitedSnapshot)
+    expect(fetched).toBe(false)
+  })
 })
