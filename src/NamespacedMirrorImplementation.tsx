@@ -558,7 +558,7 @@ class MirrorKeyListHandle<Data, Key>
     if (snapshotsToStore.length) {
       this.impl._store(snapshotsToStore)
     }
-    return getListSnapshot(snapshots, primed)
+    return getListSnapshot(this.key, snapshots, primed)
   }
 
   get(): Promise<
@@ -568,6 +568,7 @@ class MirrorKeyListHandle<Data, Key>
     const primed = maybeSnapshots.every(snapshot => snapshot && snapshot.primed)
     if (primed) {
       return Promise.resolve(getListSnapshot(
+        this.key,
         maybeSnapshots as MirrorDocumentSnapshot<Data, Key>[],
         true,
       ) as MirrorPrimedSnapshot<MirrorDocumentSnapshot<Data, Key>[], Key[]>)
@@ -581,7 +582,7 @@ class MirrorKeyListHandle<Data, Key>
             const primed = snapshots.every(
               snapshot => snapshot && snapshot.primed,
             )
-            const listSnapshot = getListSnapshot(snapshots, primed)
+            const listSnapshot = getListSnapshot(this.key, snapshots, primed)
             unsubscribe()
             if (primed) {
               resolve(listSnapshot as MirrorPrimedSnapshot<
@@ -616,6 +617,7 @@ class MirrorKeyListHandle<Data, Key>
     return this.impl._subscribe(this.key, snapshots => {
       callback(
         getListSnapshot(
+          this.key,
           snapshots,
           snapshots.every(snapshot => snapshot.primed),
         ),
@@ -650,13 +652,14 @@ class MirrorKeyListHandle<Data, Key>
 }
 
 function getListSnapshot<Data, Key>(
+  key: Key[],
   snapshots: MirrorDocumentSnapshot<Data, Key>[],
   primed: boolean,
 ): MirrorSnapshot<MirrorDocumentSnapshot<Data, Key>[], Key[]> {
   const failedSnapshot = snapshots.find(snapshot => snapshot.failure)
   return {
     data: snapshots,
-    key: this.key,
+    key,
     primed,
     failure: failedSnapshot ? failedSnapshot.failure : null,
   }

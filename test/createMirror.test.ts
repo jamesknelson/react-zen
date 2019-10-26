@@ -1,26 +1,6 @@
 import { createMirror } from '../src'
 
 describe('createMirror', () => {
-  test('returns successfuly', async () => {
-    const mirror = createMirror(async (id: number) => {
-      return {
-        test: id * 2,
-      }
-    })
-
-    const snapshot = await mirror.key(1).get()
-
-    expect(snapshot).toEqual({
-      data: { test: 2 },
-      failure: null,
-      key: 1,
-      invalidated: false,
-      pending: false,
-      primed: true,
-      updatedAt: snapshot.updatedAt,
-    })
-  })
-
   test('supports namespaces', async () => {
     const mirror = createMirror(
       async (id: number, context: { multiplier: number }) => {
