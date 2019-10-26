@@ -1,22 +1,17 @@
 import { useContext } from 'react'
 import { Mirror } from './Mirror'
 import { MirrorContext } from './MirrorContext'
-import { useHandle, UseHandleOptions } from './useHandle'
-
-export interface UseSnapshotOptions {
-  suspend?: boolean
-  throwFailures?: boolean
-}
+import { useSnapshot, UseSnapshotOptions } from './useSnapshot'
 
 export function useDocument<Data, Key>(
   mirror: Mirror<Data, Key>,
   key: Key,
-  options: UseHandleOptions = {},
+  options: UseSnapshotOptions = {},
 ) {
   const mirrorContext = useContext(MirrorContext)
   const namespacedMirror = getNamespacedMirror(mirrorContext, mirror)
   const handle = namespacedMirror.key(key)
-  return useHandle(handle, options)
+  return useSnapshot(handle, options)
 }
 
 function getNamespacedMirror<Data, Key>(

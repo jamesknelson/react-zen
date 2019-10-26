@@ -15,7 +15,7 @@ What?
 Currently, react-zen contains just two utilities:
 
 - `createMirror(fetcher)`
-- `useSnapshot(mirror, key)`
+- `useSnapshot(handle)`
 
 Together, these two functions let you easily consume asynchronous data in your React components. For example, here's how you'd load and display data from a REST API:
 
@@ -32,7 +32,7 @@ const api = createMirror(async url => {
 
 function Screen() {
   // useSnapshot returns your data, loading status, etc.
-  let { data } = useSnapshot(api, '/todos/1')
+  let { data } = useSnapshot(api.key('/todos/1'))
   return <div><input checked={data.completed} /> {data.title}</div>
 }
 
@@ -58,12 +58,11 @@ API
 
 ### `useSnapshot()`
 
-Returns a snapshot of one key's data within a mirror.
+Returns a snapshot of the data specified by the given handle.
 
 ```typescript
 export function useSnapshot(
-  mirror: Mirror,
-  key: string,
+  handle: MirrorHandle,
 ): {
   data: Data
   key: Key
@@ -130,7 +129,13 @@ interface Mirror {
    * Return a handle for the specified key, from which you can get
    * and subscribe to its value.
    */
-  key(key: string): MirrorHandle
+  key(key: string): MirrorKeyHandle
+
+  /**
+   * Return a handle for the specified keys, from which you can get
+   * and subscribe to all their values at once.
+   */
+  key(keys: string[]): MirrorKeyListHandle
 
   /**
    * Return a list of the keys currently stored in the mirror for the given
@@ -143,7 +148,7 @@ interface Mirror {
 
 ### `MirrorHandle`
 
-As returned by `mirror.key(key)`
+As returned by `mirror.key(key)` and `mirror.keys(keys)`
 
 ```typescript
 interface MirrorHandle {

@@ -3,28 +3,28 @@ import { MirrorActions } from './MirrorActions'
 import { MirrorHandle } from './MirrorHandles'
 import { MirrorSnapshot } from './MirrorSnapshots'
 
-export interface UseHandleOptions {
+export interface UseSnapshotOptions {
   suspend?: boolean
   throwFailures?: boolean
 }
 
-useHandle.defaultOptions = {
+useSnapshot.defaultOptions = {
   suspend: true,
   throwFailures: false,
-} as UseHandleOptions
+} as UseSnapshotOptions
 
-export function useHandle<
+export function useSnapshot<
   Output extends MirrorSnapshot<any, Key>,
   UpdateData,
   Key,
   Handle extends MirrorHandle<Key, UpdateData, Output>
 >(
   handle: MirrorHandle<Key, UpdateData, Output>,
-  options: UseHandleOptions = {},
+  options: UseSnapshotOptions = {},
 ): Output & MirrorActions<UpdateData, Key> {
   const {
-    suspend = useHandle.defaultOptions.suspend,
-    throwFailures = useHandle.defaultOptions.throwFailures,
+    suspend = useSnapshot.defaultOptions.suspend,
+    throwFailures = useSnapshot.defaultOptions.throwFailures,
   } = options
   let [snapshot, setSnapshot] = useState(handle.getLatest())
 

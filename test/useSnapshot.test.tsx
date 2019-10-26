@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react'
 import TestRenderer from 'react-test-renderer'
-import { createMirror, useDocument } from '../src'
+import { createMirror, useSnapshot } from '../src'
 
 const act = TestRenderer.act
 
@@ -15,7 +15,7 @@ describe('useSnapshot', () => {
     await mirror.key(2).get()
 
     function App() {
-      let snapshot = useDocument(mirror, 2)
+      let snapshot = useSnapshot(mirror.key(2))
       return <>{snapshot.data.test}</>
     }
 
@@ -32,7 +32,7 @@ describe('useSnapshot', () => {
     })
 
     function App() {
-      let snapshot = useDocument(mirror, 2, { suspend: false })
+      let snapshot = useSnapshot(mirror.key(2), { suspend: false })
       return (
         <>
           {JSON.stringify({

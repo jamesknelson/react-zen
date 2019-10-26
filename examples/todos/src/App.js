@@ -13,7 +13,7 @@ const api = createMirror(async url => {
 
 function Screen({ id }) {
   // useSnapshot returns your data, loading status, etc.
-  let snapshot = useSnapshot(api, `/todos/${id}`)
+  let snapshot = useSnapshot(api.key(`/todos/${id}`))
 
   const handleToggle = async () => {
     let request = await fetch(BaseURL + `/todos/${id}`, {
