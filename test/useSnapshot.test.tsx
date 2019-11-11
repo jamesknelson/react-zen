@@ -1,21 +1,21 @@
 import React, { Suspense } from 'react'
 import TestRenderer from 'react-test-renderer'
-import { createMirror, useSnapshot } from '../src'
+import { createModel, useSnapshot } from '../src'
 
 const act = TestRenderer.act
 
 describe('useSnapshot', () => {
   test('immediately returns primed snapshots', async () => {
-    const mirror = createMirror(async (id: number) => {
+    const model = createModel(async (id: number) => {
       return {
         test: id * 2,
       }
     })
 
-    await mirror.key(2).get()
+    await model.key(2).get()
 
     function App() {
-      let snapshot = useSnapshot(mirror.key(2))
+      let snapshot = useSnapshot(model.key(2))
       return <>{snapshot.data.test}</>
     }
 
@@ -25,14 +25,14 @@ describe('useSnapshot', () => {
   })
 
   test('when used with { suspend: false }, immediately returns unprimed snapshots', async () => {
-    const mirror = createMirror(async (id: number) => {
+    const model = createModel(async (id: number) => {
       return {
         test: id * 2,
       }
     })
 
     function App() {
-      let snapshot = useSnapshot(mirror.key(2), { suspend: false })
+      let snapshot = useSnapshot(model.key(2), { suspend: false })
       return (
         <>
           {JSON.stringify({
@@ -56,14 +56,14 @@ describe('useSnapshot', () => {
   })
 
   // test('when used without { suspend }, suspends then renders expected data', async () => {
-  //   const mirror = createMirror(async (id: number) => {
+  //   const model = createModel(async (id: number) => {
   //     return {
   //       test: id * 2,
   //     }
   //   })
 
   //   function App() {
-  //     let snapshot = useSnapshot(mirror, 2)
+  //     let snapshot = useSnapshot(model, 2)
   //     return <>{snapshot.data.test}</>
   //   }
 

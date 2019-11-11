@@ -1,15 +1,15 @@
-import { MirrorDocumentHandle, MirrorDocumentListHandle } from './MirrorHandles'
-import { MirrorDocumentSnapshot } from './MirrorSnapshots'
+import { ModelDocumentHandle, ModelDocumentListHandle } from './ModelHandles'
+import { ModelDocumentSnapshot } from './ModelSnapshots'
 
-export interface Mirror<Data = any, Key = any, Context extends object = any>
-  extends NamespacedMirror<Data, Key, {}> {
+export interface Model<Data = any, Key = any, Context extends object = any>
+  extends NamespacedModel<Data, Key, {}> {
   /**
    * Returns a namespace to hold data associated with the specified context.
    */
-  namespace(context: Context): NamespacedMirror<Data, Key, Context>
+  namespace(context: Context): NamespacedModel<Data, Key, Context>
 }
 
-export interface NamespacedMirror<Data, Key, Context extends object> {
+export interface NamespacedModel<Data, Key, Context extends object> {
   context: Context
 
   /**
@@ -29,16 +29,16 @@ export interface NamespacedMirror<Data, Key, Context extends object> {
    * Return a handle for the specified key, from which you can get
    * and subscribe to its value.
    */
-  key(key: Key): MirrorDocumentHandle<Data, Key>
+  key(key: Key): ModelDocumentHandle<Data, Key>
 
   /**
    * Return a handle for an array of keys, from which you can get
    * and subscribe to multiple values at once.
    */
-  keys(keys: Key[]): MirrorDocumentListHandle<Data, Key>
+  keys(keys: Key[]): ModelDocumentListHandle<Data, Key>
 
   /**
-   * Return a list of the keys currently stored in the mirror for the given
+   * Return a list of the keys currently stored in the model for the given
    * deps array.
    */
   knownKeys(): Key[]
@@ -56,9 +56,9 @@ export interface NamespacedMirror<Data, Key, Context extends object> {
   purge(): void
 }
 
-export interface MirrorOptions<Data, Key, Context extends object> {
+export interface ModelOptions<Data, Key, Context extends object> {
   /**
-   * An optional function for computing string keys from mirror keys,
+   * An optional function for computing string keys from model keys,
    * which is required as documents are stored with string keys internally.
    *
    * By default, this uses JSON.stringify()
@@ -73,15 +73,15 @@ export interface MirrorOptions<Data, Key, Context extends object> {
    * Use this function to perform side effects based on the currently stored
    * data.
    *
-   * For example, if this mirror contains lists of keys, you could create an
-   * effect to hold those keys within another mirror. Similarly, if this
-   * mirror contains items that are indexed in another mirror, you coudl use
+   * For example, if this model contains lists of keys, you could create an
+   * effect to hold those keys within another model. Similarly, if this
+   * model contains items that are indexed in another model, you coudl use
    * an effect to invalidate indexes as the indexed items change.
    */
-  effect?: MirrorEffectFunction<Data, Key, Context>
+  effect?: ModelEffectFunction<Data, Key, Context>
 
   /**
-   * This function is called by the mirror to fetch data once a subscription
+   * This function is called by the model to fetch data once a subscription
    * has been made to the specified key.
    *
    * At minimum, the function should return the data associated with the
@@ -89,13 +89,13 @@ export interface MirrorOptions<Data, Key, Context extends object> {
    * key.
    *
    * If nested data is also available in the response, it can be stored by
-   * calling `store` or `update` on this or other mirror namespaces.
+   * calling `store` or `update` on this or other model namespaces.
    */
-  fetch?: MirrorFetchFunction<Data, Key, Context>
+  fetch?: ModelFetchFunction<Data, Key, Context>
 
   // If supplied, this will be used instead of fetch, and can fetch multiple
   // keys in a single call.
-  fetchMany?: MirrorFetchManyFunction<Data, Key, Context>
+  fetchMany?: ModelFetchManyFunction<Data, Key, Context>
 
   /**
    * Configures how to purge data when there are no longer any active
@@ -109,32 +109,32 @@ export interface MirrorOptions<Data, Key, Context extends object> {
    * return a function which can be called to *cancel* a purge, should the
    * data become required before the purge takes place.
    */
-  schedulePurge: number | MirrorPurgeScheduler<Data, Key, Context>
+  schedulePurge: number | ModelPurgeScheduler<Data, Key, Context>
 }
 
-export type MirrorCancelScheduledPurgeFunction = () => void
+export type ModelCancelScheduledPurgeFunction = () => void
 
-export type MirrorCleanupEffectFunction = () => void
+export type ModelCleanupEffectFunction = () => void
 
-export type MirrorEffectFunction<Data, Key, Context extends object> = (
-  snapshot: MirrorDocumentSnapshot<Data, Key>,
+export type ModelEffectFunction<Data, Key, Context extends object> = (
+  snapshot: ModelDocumentSnapshot<Data, Key>,
   context: Context,
-) => MirrorCleanupEffectFunction
+) => void | undefined | ModelCleanupEffectFunction
 
-export type MirrorFetchFunction<Data, Key, Context extends object> = (
+export type ModelFetchFunction<Data, Key, Context extends object> = (
   key: Key,
   context: Context,
-  mirror: NamespacedMirror<Data, Key, Context>,
+  model: NamespacedModel<Data, Key, Context>,
 ) => Promise<Data>
 
-export type MirrorFetchManyFunction<Data, Key, Context extends object> = (
+export type ModelFetchManyFunction<Data, Key, Context extends object> = (
   key: Key[],
   context: Context,
-  mirror: NamespacedMirror<Data, Key, Context>,
+  model: NamespacedModel<Data, Key, Context>,
 ) => Promise<Data[]>
 
-export type MirrorPurgeScheduler<Data, Key, Context extends object> = (
+export type ModelPurgeScheduler<Data, Key, Context extends object> = (
   purge: () => void,
-  snapshot: MirrorDocumentSnapshot<Data, Key>,
+  snapshot: ModelDocumentSnapshot<Data, Key>,
   context: Context,
-) => MirrorCancelScheduledPurgeFunction
+) => void | undefined | ModelCancelScheduledPurgeFunction

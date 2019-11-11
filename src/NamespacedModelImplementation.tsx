@@ -1,17 +1,17 @@
 import {
-  MirrorEffectFunction,
-  MirrorFetchManyFunction,
-  MirrorOptions,
-  MirrorPurgeScheduler,
-  NamespacedMirror,
-} from './Mirror'
-import { MirrorDocumentHandle, MirrorDocumentListHandle } from './MirrorHandles'
+  ModelEffectFunction,
+  ModelFetchManyFunction,
+  ModelOptions,
+  ModelPurgeScheduler,
+  NamespacedModel,
+} from './Model'
+import { ModelDocumentHandle, ModelDocumentListHandle } from './ModelHandles'
 import {
-  MirrorSnapshot,
-  MirrorPrimedSnapshot,
-  MirrorDocumentSnapshot,
-  MirrorPrimedDocumentSnapshot,
-} from './MirrorSnapshots'
+  ModelSnapshot,
+  ModelPrimedSnapshot,
+  ModelDocumentSnapshot,
+  ModelPrimedDocumentSnapshot,
+} from './ModelSnapshots'
 
 interface ScheduledPurge {
   canceller?: () => void
@@ -19,24 +19,24 @@ interface ScheduledPurge {
 
 interface Subscription<Data, Key> {
   hashes: string[]
-  callback: (snapshots: MirrorDocumentSnapshot<Data, Key>[]) => void
+  callback: (snapshots: ModelDocumentSnapshot<Data, Key>[]) => void
 }
 
-export default class NamespacedMirrorImplementation<
+export default class NamespacedModelImplementation<
   Data,
   Key,
   Context extends object
-> implements NamespacedMirror<Data, Key, Context> {
+> implements NamespacedModel<Data, Key, Context> {
   readonly context: Context
 
   _config: {
     computeHashForKey: (key: Key) => string
-    effect?: MirrorEffectFunction<Data, Key, Context>
-    fetchMany: MirrorFetchManyFunction<Data, Key, Context>
-    schedulePurge: MirrorPurgeScheduler<Data, Key, Context>
+    effect?: ModelEffectFunction<Data, Key, Context>
+    fetchMany: ModelFetchManyFunction<Data, Key, Context>
+    schedulePurge: ModelPurgeScheduler<Data, Key, Context>
   }
-  _effectCleanups: {
-    [hash: string]: () => void
+  _effects: {
+    [hash: string]: { cleanup?: () => void }
   }
   _fetches: {
     [hash: string]: Promise<any>
@@ -51,13 +51,13 @@ export default class NamespacedMirrorImplementation<
     [hash: string]: Subscription<Data, Key>[]
   }
   _snapshots: {
-    [hash: string]: MirrorDocumentSnapshot<Data, Key>
+    [hash: string]: ModelDocumentSnapshot<Data, Key>
   }
 
-  constructor(options: MirrorOptions<Data, Key, Context>, context: Context) {
+  constructor(options: ModelOptions<Data, Key, Context>, context: Context) {
     this.context = context
 
-    let fetchMany: MirrorFetchManyFunction<Data, Key, Context>
+    let fetchMany: ModelFetchManyFunction<Data, Key, Context>
     if (options.fetchMany) {
       fetchMany = options.fetchMany
     } else if (options.fetch) {
@@ -92,7 +92,7 @@ export default class NamespacedMirrorImplementation<
           ? createTimeoutPurgeScheduler(options.schedulePurge)
           : options.schedulePurge,
     }
-    this._effectCleanups = {}
+    this._effects = {}
     this._fetches = {}
     this._holds = {}
     this._scheduledPurges = {}
@@ -107,11 +107,11 @@ export default class NamespacedMirrorImplementation<
   }
 
   key(key: Key) {
-    return new MirrorKeyHandle(this, key)
+    return new ModelKeyHandle(this, key)
   }
 
   keys(keys: Key[]) {
-    return new MirrorKeyListHandle(this, keys)
+    return new ModelKeyListHandle(this, keys)
   }
 
   knownKeys() {
@@ -143,7 +143,7 @@ export default class NamespacedMirrorImplementation<
   }
 
   async _fetch(keys: Key[], hashes: string[]) {
-    const pendingSnapshotsToStore: MirrorDocumentSnapshot<Data, Key>[] = []
+    const pendingSnapshotsToStore: ModelDocumentSnapshot<Data, Key>[] = []
     const keysToFetch: Key[] = []
     const hashesToFetch: string[] = []
 
@@ -174,7 +174,7 @@ export default class NamespacedMirrorImplementation<
     this._store(pendingSnapshotsToStore)
 
     if (keysToFetch.length > 0) {
-      let updatedSnapshots: MirrorDocumentSnapshot<Data, Key>[] = []
+      let updatedSnapshots: ModelDocumentSnapshot<Data, Key>[] = []
       try {
         const promise = this._config.fetchMany(keysToFetch, this.context, this)
         for (let i = 0; i < hashesToFetch.length; i++) {
@@ -208,7 +208,7 @@ export default class NamespacedMirrorImplementation<
     unhold()
   }
 
-  _get(keys: Key[]): (MirrorDocumentSnapshot<Data, Key> | null)[] {
+  _get(keys: Key[]): (ModelDocumentSnapshot<Data, Key> | null)[] {
     return keys.map(
       key => this._snapshots[this._config.computeHashForKey(key)] || null,
     )
@@ -243,7 +243,7 @@ export default class NamespacedMirrorImplementation<
 
   _invalidate(keys: Key[]): void {
     const hashes = this._computeHashes(keys)
-    const snapshotsToStore: MirrorDocumentSnapshot<Data, Key>[] = []
+    const snapshotsToStore: ModelDocumentSnapshot<Data, Key>[] = []
     const keysToFetch: Key[] = []
     const hashesToFetch: string[] = []
     for (let i = 0; i < hashes.length; i++) {
@@ -285,11 +285,11 @@ export default class NamespacedMirrorImplementation<
       const scheduledPurge = this._scheduledPurges[hash]
       if (scheduledPurge) {
         // Clean up effects
-        const effectCleanup = this._effectCleanups[hash]
-        if (effectCleanup) {
-          effectCleanup()
-          delete this._effectCleanups[hash]
+        const effect = this._effects[hash]
+        if (effect && effect.cleanup) {
+          effect.cleanup()
         }
+        delete this._effects[hash]
 
         // Remove stored snapshot data, and remove the scheduled purge
         delete this._snapshots[hash]
@@ -318,11 +318,11 @@ export default class NamespacedMirrorImplementation<
         purge,
         snapshot,
         this.context,
-      )
+      ) as (() => void) | undefined
     }
   }
 
-  _store(snapshots: MirrorDocumentSnapshot<Data, Key>[]): void {
+  _store(snapshots: ModelDocumentSnapshot<Data, Key>[]): void {
     const hashes: string[] = []
     const hashesToSchedulePurge: string[] = []
     const updatedSubscriptions: Set<Subscription<Data, Key>> = new Set()
@@ -368,9 +368,11 @@ export default class NamespacedMirrorImplementation<
         // subscription callbacks
         const snapshot = this._snapshots[hash]
 
-        const previousCleanup = this._effectCleanups[hash]
-        this._effectCleanups[hash] = effect(snapshot, this.context)
-        previousCleanup()
+        const previousEffect = this._effects[hash]
+        this._effects[hash] = {
+          cleanup: effect(snapshot, this.context) as (() => void) | undefined,
+        }
+        previousEffect && previousEffect.cleanup && previousEffect.cleanup()
       }
     }
 
@@ -381,7 +383,7 @@ export default class NamespacedMirrorImplementation<
 
   _subscribe(
     keys: Key[],
-    callback: (snapshots: MirrorDocumentSnapshot<Data, Key>[]) => void,
+    callback: (snapshots: ModelDocumentSnapshot<Data, Key>[]) => void,
   ): () => void {
     const keysToFetch: Key[] = []
     const hashes: string[] = this._computeHashes(keys)
@@ -438,16 +440,16 @@ export default class NamespacedMirrorImplementation<
   }
 }
 
-class MirrorKeyHandle<Data, Key> implements MirrorDocumentHandle<Data, Key> {
+class ModelKeyHandle<Data, Key> implements ModelDocumentHandle<Data, Key> {
   readonly key: Key
-  readonly impl: NamespacedMirrorImplementation<Data, Key, any>
+  readonly impl: NamespacedModelImplementation<Data, Key, any>
 
-  constructor(impl: NamespacedMirrorImplementation<Data, Key, any>, key: Key) {
+  constructor(impl: NamespacedModelImplementation<Data, Key, any>, key: Key) {
     this.key = key
     this.impl = impl
   }
 
-  getLatest() {
+  getCurrentValue() {
     let snapshot = this.impl._get([this.key])[0]
     if (snapshot === null) {
       snapshot = getInitialSnapshot(this.key)
@@ -456,21 +458,21 @@ class MirrorKeyHandle<Data, Key> implements MirrorDocumentHandle<Data, Key> {
     return snapshot
   }
 
-  get(): Promise<MirrorPrimedDocumentSnapshot<Data, Key>> {
+  get(): Promise<ModelPrimedDocumentSnapshot<Data, Key>> {
     const currentSnapshot = this.impl._get([this.key])[0]
     if (currentSnapshot && currentSnapshot.primed) {
-      return Promise.resolve(currentSnapshot as MirrorPrimedDocumentSnapshot<
+      return Promise.resolve(currentSnapshot as ModelPrimedDocumentSnapshot<
         Data,
         Key
       >)
     } else {
-      return new Promise<MirrorPrimedDocumentSnapshot<Data, Key>>(
+      return new Promise<ModelPrimedDocumentSnapshot<Data, Key>>(
         (resolve, reject) => {
           const unsubscribe = this.impl._subscribe([this.key], ([snapshot]) => {
             if (!snapshot.pending) {
               unsubscribe()
               if (snapshot.primed) {
-                resolve(snapshot as MirrorPrimedDocumentSnapshot<Data, Key>)
+                resolve(snapshot as ModelPrimedDocumentSnapshot<Data, Key>)
               } else {
                 reject(snapshot.failure && snapshot.failure.reason)
               }
@@ -525,23 +527,20 @@ class MirrorKeyHandle<Data, Key> implements MirrorDocumentHandle<Data, Key> {
   }
 }
 
-class MirrorKeyListHandle<Data, Key>
-  implements MirrorDocumentListHandle<Data, Key> {
+class ModelKeyListHandle<Data, Key>
+  implements ModelDocumentListHandle<Data, Key> {
   readonly key: Key[]
-  readonly impl: NamespacedMirrorImplementation<Data, Key, any>
+  readonly impl: NamespacedModelImplementation<Data, Key, any>
 
-  constructor(
-    impl: NamespacedMirrorImplementation<Data, Key, any>,
-    key: Key[],
-  ) {
+  constructor(impl: NamespacedModelImplementation<Data, Key, any>, key: Key[]) {
     this.key = key
     this.impl = impl
   }
 
-  getLatest() {
-    const snapshotsToStore: MirrorDocumentSnapshot<Data, Key>[] = []
+  getCurrentValue() {
+    const snapshotsToStore: ModelDocumentSnapshot<Data, Key>[] = []
     const maybeSnapshots = this.impl._get(this.key)
-    const snapshots: MirrorDocumentSnapshot<Data, Key>[] = []
+    const snapshots: ModelDocumentSnapshot<Data, Key>[] = []
     let primed = true
     for (let i = 0; i < maybeSnapshots.length; i++) {
       const key = this.key[i]
@@ -562,19 +561,19 @@ class MirrorKeyListHandle<Data, Key>
   }
 
   get(): Promise<
-    MirrorPrimedSnapshot<MirrorDocumentSnapshot<Data, Key>[], Key[]>
+    ModelPrimedSnapshot<ModelDocumentSnapshot<Data, Key>[], Key[]>
   > {
     const maybeSnapshots = this.impl._get(this.key)
     const primed = maybeSnapshots.every(snapshot => snapshot && snapshot.primed)
     if (primed) {
       return Promise.resolve(getListSnapshot(
         this.key,
-        maybeSnapshots as MirrorDocumentSnapshot<Data, Key>[],
+        maybeSnapshots as ModelDocumentSnapshot<Data, Key>[],
         true,
-      ) as MirrorPrimedSnapshot<MirrorDocumentSnapshot<Data, Key>[], Key[]>)
+      ) as ModelPrimedSnapshot<ModelDocumentSnapshot<Data, Key>[], Key[]>)
     } else {
       return new Promise<
-        MirrorPrimedSnapshot<MirrorDocumentSnapshot<Data, Key>[], Key[]>
+        ModelPrimedSnapshot<ModelDocumentSnapshot<Data, Key>[], Key[]>
       >((resolve, reject) => {
         const unsubscribe = this.impl._subscribe(this.key, snapshots => {
           const pending = snapshots.some(snapshot => snapshot.pending)
@@ -585,8 +584,8 @@ class MirrorKeyListHandle<Data, Key>
             const listSnapshot = getListSnapshot(this.key, snapshots, primed)
             unsubscribe()
             if (primed) {
-              resolve(listSnapshot as MirrorPrimedSnapshot<
-                MirrorDocumentSnapshot<Data, Key>[],
+              resolve(listSnapshot as ModelPrimedSnapshot<
+                ModelDocumentSnapshot<Data, Key>[],
                 Key[]
               >)
             } else {
@@ -653,9 +652,9 @@ class MirrorKeyListHandle<Data, Key>
 
 function getListSnapshot<Data, Key>(
   key: Key[],
-  snapshots: MirrorDocumentSnapshot<Data, Key>[],
+  snapshots: ModelDocumentSnapshot<Data, Key>[],
   primed: boolean,
-): MirrorSnapshot<MirrorDocumentSnapshot<Data, Key>[], Key[]> {
+): ModelSnapshot<ModelDocumentSnapshot<Data, Key>[], Key[]> {
   const failedSnapshot = snapshots.find(snapshot => snapshot.failure)
   return {
     data: snapshots,
@@ -666,10 +665,10 @@ function getListSnapshot<Data, Key>(
 }
 
 function getFailureSnapshot<Data, Key>(
-  currentSnapshot: MirrorDocumentSnapshot<Data, Key>,
+  currentSnapshot: ModelDocumentSnapshot<Data, Key>,
   reason: any,
   failedAt: number,
-): MirrorDocumentSnapshot<Data, Key> {
+): ModelDocumentSnapshot<Data, Key> {
   return {
     ...currentSnapshot,
     failure: {
@@ -680,7 +679,7 @@ function getFailureSnapshot<Data, Key>(
   }
 }
 
-function getInitialSnapshot<Key>(key: Key): MirrorDocumentSnapshot<any, Key> {
+function getInitialSnapshot<Key>(key: Key): ModelDocumentSnapshot<any, Key> {
   return {
     data: undefined,
     failure: null,
@@ -694,8 +693,8 @@ function getInitialSnapshot<Key>(key: Key): MirrorDocumentSnapshot<any, Key> {
 
 function getPendingSnapshot<Data, Key>(
   key: Key,
-  currentSnapshot: null | MirrorDocumentSnapshot<Data, Key>,
-): MirrorDocumentSnapshot<Data, Key> {
+  currentSnapshot: null | ModelDocumentSnapshot<Data, Key>,
+): ModelDocumentSnapshot<Data, Key> {
   if (!currentSnapshot) {
     return getInitialSnapshot(key)
   } else if (!currentSnapshot.pending) {
@@ -712,7 +711,7 @@ function getUpdatedSnapshot<Data, Key>(
   data: Data,
   pending: boolean,
   updatedAt: number,
-): MirrorDocumentSnapshot<Data, Key> {
+): ModelDocumentSnapshot<Data, Key> {
   return {
     data,
     failure: null,
@@ -726,7 +725,7 @@ function getUpdatedSnapshot<Data, Key>(
 
 function createTimeoutPurgeScheduler<Data, Key, Context extends object>(
   milliseconds: number,
-): MirrorPurgeScheduler<Data, Key, Context> {
+): ModelPurgeScheduler<Data, Key, Context> {
   return (purge: () => void) => {
     const timeout = setTimeout(purge, milliseconds)
     return () => {

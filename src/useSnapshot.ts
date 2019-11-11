@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MirrorActions } from './MirrorActions'
-import { MirrorHandle } from './MirrorHandles'
-import { MirrorSnapshot } from './MirrorSnapshots'
+import { ModelActions } from './ModelActions'
+import { ModelHandle } from './ModelHandles'
+import { ModelSnapshot } from './ModelSnapshots'
 
 export interface UseSnapshotOptions {
   suspend?: boolean
@@ -14,23 +14,23 @@ useSnapshot.defaultOptions = {
 } as UseSnapshotOptions
 
 export function useSnapshot<
-  Output extends MirrorSnapshot<any, Key>,
+  Output extends ModelSnapshot<any, Key>,
   UpdateData,
   Key,
-  Handle extends MirrorHandle<Key, UpdateData, Output>
+  Handle extends ModelHandle<Key, UpdateData, Output>
 >(
-  handle: MirrorHandle<Key, UpdateData, Output>,
+  handle: ModelHandle<Key, UpdateData, Output>,
   options: UseSnapshotOptions = {},
-): Output & MirrorActions<UpdateData, Key> {
+): Output & ModelActions<UpdateData, Key> {
   const {
     suspend = useSnapshot.defaultOptions.suspend,
     throwFailures = useSnapshot.defaultOptions.throwFailures,
   } = options
-  let [snapshot, setSnapshot] = useState(handle.getLatest())
+  let [snapshot, setSnapshot] = useState(handle.getCurrentValue())
 
   // If the key changes, we want to immediately reflect the new key
   if (snapshot.key != handle.key) {
-    snapshot = handle.getLatest()
+    snapshot = handle.getCurrentValue()
   }
 
   if (!snapshot.primed) {

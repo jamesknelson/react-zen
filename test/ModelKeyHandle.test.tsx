@@ -1,14 +1,14 @@
-import { createMirror } from '../src'
+import { createModel } from '../src'
 
-describe('MirrorKeyHandle', () => {
+describe('ModelKeyHandle', () => {
   test('supports get', async () => {
-    const mirror = createMirror(async (id: number) => {
+    const model = createModel(async (id: number) => {
       return {
         test: id * 2,
       }
     })
 
-    const snapshot = await mirror.key(1).get()
+    const snapshot = await model.key(1).get()
 
     expect(snapshot).toEqual({
       data: { test: 2 },
@@ -23,18 +23,18 @@ describe('MirrorKeyHandle', () => {
 
   test('after an update, data should be immediately available', async () => {
     let fetched = false
-    const mirror = createMirror(async (id: number) => {
+    const model = createModel(async (id: number) => {
       fetched = true
       return {
         test: id * 2,
       }
     })
 
-    const handle = mirror.key(1)
+    const handle = model.key(1)
 
     handle.update({ test: 9 })
 
-    const latestSnapshot = handle.getLatest()
+    const latestSnapshot = handle.getCurrentValue()
     const awaitedSnapshot = await handle.get()
 
     expect(latestSnapshot).toEqual(awaitedSnapshot)
@@ -43,18 +43,18 @@ describe('MirrorKeyHandle', () => {
 
   test('when subscribed', async () => {
     let fetched = false
-    const mirror = createMirror(async (id: number) => {
+    const model = createModel(async (id: number) => {
       fetched = true
       return {
         test: id * 2,
       }
     })
 
-    const handle = mirror.key(1)
+    const handle = model.key(1)
 
     handle.update({ test: 9 })
 
-    const latestSnapshot = handle.getLatest()
+    const latestSnapshot = handle.getCurrentValue()
     const awaitedSnapshot = await handle.get()
 
     expect(awaitedSnapshot.data.test).toEqual(9)

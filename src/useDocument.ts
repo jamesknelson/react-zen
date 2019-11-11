@@ -1,29 +1,29 @@
 import { useContext } from 'react'
-import { Mirror } from './Mirror'
-import { MirrorContext } from './MirrorContext'
+import { Model } from './Model'
+import { ModelContext } from './ModelContext'
 import { useSnapshot, UseSnapshotOptions } from './useSnapshot'
 
 export function useDocument<Data, Key>(
-  mirror: Mirror<Data, Key>,
+  model: Model<Data, Key>,
   key: Key,
   options: UseSnapshotOptions = {},
 ) {
-  const mirrorContext = useContext(MirrorContext)
-  const namespacedMirror = getNamespacedMirror(mirrorContext, mirror)
-  const handle = namespacedMirror.key(key)
+  const modelContext = useContext(ModelContext)
+  const namespacedModel = getNamespacedModel(modelContext, model)
+  const handle = namespacedModel.key(key)
   return useSnapshot(handle, options)
 }
 
-function getNamespacedMirror<Data, Key>(
-  context: MirrorContext,
-  mirror: Mirror<Data, Key>,
+function getNamespacedModel<Data, Key>(
+  context: ModelContext,
+  model: Model<Data, Key>,
 ) {
-  const override = context.namespaces.get(mirror)
+  const override = context.namespaces.get(model)
   if (override) {
-    return mirror.namespace(override)
+    return model.namespace(override)
   }
   if (context.namespace) {
-    return mirror.namespace(context.namespace)
+    return model.namespace(context.namespace)
   }
-  return mirror
+  return model
 }

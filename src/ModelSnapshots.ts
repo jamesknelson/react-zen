@@ -1,4 +1,4 @@
-export interface MirrorSnapshot<Data = any, Key = any> {
+export interface ModelSnapshot<Data = any, Key = any> {
   data?: Data
 
   /**
@@ -29,14 +29,14 @@ export interface MirrorSnapshot<Data = any, Key = any> {
   primed: boolean
 }
 
-export interface MirrorPrimedSnapshot<Data = any, Key = any>
-  extends MirrorSnapshot<Data, Key> {
+export interface ModelPrimedSnapshot<Data = any, Key = any>
+  extends ModelSnapshot<Data, Key> {
   data: Data
   primed: true
 }
 
-export interface MirrorDocumentSnapshot<Data = any, Key = any>
-  extends MirrorSnapshot<Data, Key> {
+export interface ModelDocumentSnapshot<Data = any, Key = any>
+  extends ModelSnapshot<Data, Key> {
   /**
    * Set to true after `invalidate` has been called, and stays true until a
    * more recent version of the document is received.
@@ -57,15 +57,15 @@ export interface MirrorDocumentSnapshot<Data = any, Key = any>
   updatedAt: null | number
 }
 
-export interface MirrorPrimedDocumentSnapshot<Data = any, Key = any>
-  extends MirrorDocumentSnapshot<Data, Key> {
+export interface ModelPrimedDocumentSnapshot<Data = any, Key = any>
+  extends ModelDocumentSnapshot<Data, Key> {
   data: Data
   primed: true
   updatedAt: number
 }
 
-export interface MirrorCollectionSnapshot<Data = any, Key = any, Query = any>
-  extends MirrorSnapshot<MirrorDocumentSnapshot<Data, Key>, Query> {
+export interface ModelCollectionSnapshot<Data = any, Key = any, Query = any>
+  extends ModelSnapshot<ModelDocumentSnapshot<Data, Key>, Query> {
   /**
    * Set to true after `invalidate` has been called, and stays true until a
    * more recent version of the full collection is received.
@@ -87,12 +87,12 @@ export interface MirrorCollectionSnapshot<Data = any, Key = any, Query = any>
   updatedAt: null | number
 }
 
-export interface MirrorPrimedCollectionSnapshot<
+export interface ModelPrimedCollectionSnapshot<
   Data = any,
   Key = any,
   Query = any
-> extends MirrorCollectionSnapshot<Data, Key, Query> {
-  data: MirrorDocumentSnapshot<Data, Key>
+> extends ModelCollectionSnapshot<Data, Key, Query> {
+  data: ModelDocumentSnapshot<Data, Key>
   primed: true
   updatedAt: number
 }
